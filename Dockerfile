@@ -36,8 +36,9 @@ RUN npm install -g tsx
 # Expose port
 EXPOSE 8080
 
-# Set environment variable for port
+# Set environment variables
 ENV PORT=8080
+ENV NODE_ENV=production
 
 # Start server
 CMD ["tsx", "server.ts"]

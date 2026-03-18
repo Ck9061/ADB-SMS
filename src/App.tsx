@@ -18,10 +18,10 @@ function cn(...inputs: ClassValue[]) {
 }
 
 // ================= 配置区 =================
-// 自动获取当前环境的 WebSocket URL
+// 自动获取当前环境的 WebSocket URL（根据当前页面域名自动适配）
 const getWsUrl = () => {
-  // 核心：Ngrok 转发通常需要后缀路径 /ws，否则服务器无法识别
-  return "wss://leonore-intertuberal-nontribally.ngrok-free.dev/ws";
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}/ws`;
 };
 
 type Role = 'host' | 'client';
@@ -572,7 +572,7 @@ const saveToLocal = (x: number, y: number) => {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20"><Smartphone className="w-6 h-6 text-emerald-500" /></div>
               <div>
-                <h1 className="font-bold text-xl">Bade ADB 控制台</h1>
+                <h1 className="font-bold text-xl">Just Send SMS</h1>
                 <div className={`text-[10px] uppercase font-bold ${hostOnline ? 'text-emerald-500' : 'text-red-500'}`}>
                   {hostOnline ? '● 控制端在线' : '○ 等待连接...'}
                   {sessionId && <span className="ml-2 text-zinc-500">会话: {sessionId}</span>}

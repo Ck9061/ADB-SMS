@@ -4,17 +4,10 @@ steps:
     args:
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/adb-sms:$SHORT_SHA'
-      - '-t'
       - 'gcr.io/$PROJECT_ID/adb-sms:latest'
       - '.'
 
   # Push the container image to Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - 'push'
-      - 'gcr.io/$PROJECT_ID/adb-sms:$SHORT_SHA'
-
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
@@ -28,17 +21,16 @@ steps:
       - 'deploy'
       - 'adb-sms'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/adb-sms:$SHORT_SHA'
+      - 'gcr.io/$PROJECT_ID/adb-sms:latest'
       - '--region'
       - 'us-central1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'GEMINI_API_KEY=${_GEMINI_API_KEY}'
+      - 'GEMINI_API_KEY=${_GEMINI_API_KEY},NODE_ENV=production'
 
 images:
-  - 'gcr.io/$PROJECT_ID/adb-sms:$SHORT_SHA'
   - 'gcr.io/$PROJECT_ID/adb-sms:latest'
 
 options:
