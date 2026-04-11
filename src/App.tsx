@@ -18,10 +18,20 @@ function cn(...inputs: ClassValue[]) {
 }
 
 // ================= 配置区 =================
-// 自动获取当前环境的 WebSocket URL（根据当前页面域名自动适配）
+// 自动获取当前环境的 WebSocket URL
 const getWsUrl = () => {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${window.location.host}/ws`;
+  // 优先使用当前页面的域名，这样部署到 Google Cloud 或使用 Ngrok 都能自动适配
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  let host = window.location.host;
+  
+  // 解决 AI Studio 开发环境 (ais-dev) 的 302 重定向问题：
+  // 开发环境有身份验证代理，本地 Node.js 脚本无法直接连接。
+  // 我们将其自动替换为公开的分享链接 (ais-pre)，指向同一个后端服务。
+  if (host.startsWith('ais-dev-')) {
+    host = host.replace('ais-dev-', 'ais-pre-');
+  }
+  
+  return `${protocol}//${host}/ws`;
 };
 
 type Role = 'host' | 'client';
@@ -164,6 +174,10 @@ function connect() {
 
     ws.on('error', (err) => {
         console.error("❌ WebSocket 错误:", err.message);
+        if (err.message.includes('302')) {
+            console.error("👉 提示: 302 错误通常是因为遇到了身份验证代理 (如 AI Studio 开发环境)。");
+            console.error("👉 解决方法: 请使用公开的分享链接 (Shared App URL) 运行此页面，然后重新复制脚本。");
+        }
     });
 }
 
@@ -185,12 +199,18 @@ connect();
   // WebSocket 初始化与会话管理
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const sId = params.get('session');
+    let sId = params.get('session');
     
-    if (sId) {
-      setSessionId(sId);
-      connectToWs(sId);
+    // 如果没有 session 参数，默认使用 'public'
+    if (!sId) {
+      sId = 'public';
+      // 更新 URL 但不刷新页面，方便用户分享
+      const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?session=' + sId;
+      window.history.pushState({ path: newUrl }, '', newUrl);
     }
+    
+    setSessionId(sId);
+    connectToWs(sId);
   }, []);
 // 1. 在组件内部添加一个 useEffect，专门监听设备切换
 useEffect(() => {
@@ -572,7 +592,7 @@ const saveToLocal = (x: number, y: number) => {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center border border-emerald-500/20"><Smartphone className="w-6 h-6 text-emerald-500" /></div>
               <div>
-                <h1 className="font-bold text-xl">Just Send SMS</h1>
+                <h1 className="font-bold text-xl">Bade ADB 控制台</h1>
                 <div className={`text-[10px] uppercase font-bold ${hostOnline ? 'text-emerald-500' : 'text-red-500'}`}>
                   {hostOnline ? '● 控制端在线' : '○ 等待连接...'}
                   {sessionId && <span className="ml-2 text-zinc-500">会话: {sessionId}</span>}
@@ -580,26 +600,17 @@ const saveToLocal = (x: number, y: number) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {!sessionId ? (
-                <button 
-                  onClick={createSession}
-                  className="px-4 py-2 bg-emerald-500 text-black font-bold rounded-xl text-xs flex items-center gap-2 hover:bg-emerald-400 transition-all"
-                >
-                  <UserPlus className="w-3 h-3" /> 创建新会话
-                </button>
-              ) : (
-                <button 
-                  onClick={() => { 
-                    navigator.clipboard.writeText(window.location.href); 
-                    setCopied(true); 
-                    setTimeout(() => setCopied(false), 2000); 
-                  }} 
-                  className="px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs flex items-center gap-2 hover:bg-zinc-800 transition-all"
-                >
-                  {copied ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <LinkIcon className="w-3 h-3" />} 
-                  分享链接
-                </button>
-              )}
+              <button 
+                onClick={() => { 
+                  navigator.clipboard.writeText(window.location.href); 
+                  setCopied(true); 
+                  setTimeout(() => setCopied(false), 2000); 
+                }} 
+                className="px-4 py-2 bg-emerald-500 text-black font-bold rounded-xl text-xs flex items-center gap-2 hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
+              >
+                {copied ? <CheckCircle2 className="w-3 h-3" /> : <LinkIcon className="w-3 h-3" />} 
+                分享给客户
+              </button>
             </div>
           </div>
         </header>
@@ -878,26 +889,35 @@ const saveToLocal = (x: number, y: number) => {
             </div>
           </section>
 
-          {/* 桥接代码导出 */}
+          {/* 桥接代码导出 - 默认折叠，只有管理员需要看 */}
           {sessionId && (
-            <section className="bg-zinc-900/50 rounded-3xl border border-zinc-800 p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-emerald-500 font-bold text-sm"><Shield className="w-4 h-4" /> 本地桥接配置</div>
-                <div className="text-[10px] text-zinc-500 uppercase font-bold">运行于本地 Node.js</div>
+            <details className="group bg-zinc-900/30 rounded-3xl border border-zinc-800/50 overflow-hidden">
+              <summary className="p-6 cursor-pointer flex items-center justify-between hover:bg-zinc-800/30 transition-all">
+                <div className="flex items-center gap-2 text-zinc-500 font-bold text-sm">
+                  <Shield className="w-4 h-4" /> 
+                  <span>服务端配置 (仅管理员)</span>
+                </div>
+                <div className="text-[10px] text-zinc-600 uppercase font-bold group-open:rotate-180 transition-transform">展开配置 ↓</div>
+              </summary>
+              <div className="p-6 pt-0 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-emerald-500 font-bold text-xs">本地桥接脚本</div>
+                  <div className="text-[10px] text-zinc-500 uppercase font-bold">运行于你的电脑</div>
+                </div>
+                <p className="text-[10px] text-zinc-500">这是为你准备的。在你的电脑上运行此脚本，即可为所有访问此页面的客户提供短信发送服务。</p>
+                <div className="relative group/code">
+                  <pre className="bg-black p-4 rounded-xl text-[10px] font-mono text-emerald-500/70 overflow-x-auto border border-zinc-800 group-hover/code:border-emerald-500/30 transition-all max-h-40">
+                    {bridgeCode}
+                  </pre>
+                  <button 
+                    onClick={() => { navigator.clipboard.writeText(bridgeCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                    className="absolute top-2 right-2 p-2 bg-zinc-900/80 rounded-lg border border-zinc-800 hover:bg-zinc-800 transition-all"
+                  >
+                    {copied ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-zinc-500">复制下方代码并在你的电脑上运行 (需安装 Node.js 和 ADB)。这将允许网页端通过你的电脑发送短信。</p>
-              <div className="relative group">
-                <pre className="bg-black p-4 rounded-xl text-[10px] font-mono text-emerald-500/70 overflow-x-auto border border-zinc-800 group-hover:border-emerald-500/30 transition-all max-h-40">
-                  {bridgeCode}
-                </pre>
-                <button 
-                  onClick={() => { navigator.clipboard.writeText(bridgeCode); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-                  className="absolute top-2 right-2 p-2 bg-zinc-900/80 rounded-lg border border-zinc-800 hover:bg-zinc-800 transition-all"
-                >
-                  {copied ? <CheckCircle2 className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                </button>
-              </div>
-            </section>
+            </details>
           )}
         </main>
       </div>

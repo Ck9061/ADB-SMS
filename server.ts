@@ -25,7 +25,7 @@ async function startServer() {
     }
   });
 
-  const PORT = process.env.PORT || 3000;
+  const PORT = 3000;
 
   // Store active sessions
   // sessionId -> { host: WebSocket, clients: Set<WebSocket> }

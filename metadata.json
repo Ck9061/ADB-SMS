@@ -1,5 +1,5 @@
 {
-  "name": "ADB SMS Web Console",
+  "name": "JUST SEND SMS GATEWAY",
   "description": "A remote control dashboard to send SMS via ADB connected devices.",
   "requestFramePermissions": []
 }
