@@ -14,6 +14,9 @@ async function startServer() {
   const server = createServer(app);
   const wss = new WebSocketServer({ noServer: true });
 
+  // AI Studio 强制要求监听 3000 端口
+  const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+
   server.on('upgrade', (request, socket, head) => {
     const url = new URL(request.url || '', 'http://localhost');
     const pathname = url.pathname;
@@ -24,8 +27,6 @@ async function startServer() {
       });
     }
   });
-
-  const PORT = 3000;
 
   // Store active sessions
   // sessionId -> { host: WebSocket, clients: Set<WebSocket> }
